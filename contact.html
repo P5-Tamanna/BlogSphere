@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact - My Blog</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <nav class="navbar">
+            <div class="nav-brand">
+                <h1><a href="home.html">My Blog</a></h1>
+            </div>
+            <div class="nav-menu" id="nav-menu">
+                <ul class="nav-list">
+                    <li class="nav-item">
+                        <a href="home.html" class="nav-link">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="about.html" class="nav-link">About</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="blog.html" class="nav-link">Blog</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="contact.html" class="nav-link active">Contact</a>
+                    </li>
+                </ul>
+            </div>
+            <div class="nav-toggle" id="nav-toggle">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Page Header -->
+    <section class="page-header">
+        <div class="container">
+            <h1>Get In Touch</h1>
+            <p>I'd love to hear from you</p>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section class="contact-section">
+        <div class="container">
+            <div class="contact-content">
+                <div class="contact-info">
+                    <h2>Let's Connect</h2>
+                    <p>Have a question, want to collaborate, or just want to say hello? I'd love to hear from you! Whether you're interested in working together, have feedback on my blog, or just want to share your thoughts, don't hesitate to reach out.</p>
+                    
+                    <div class="contact-methods">
+                        <div class="contact-item">
+                            <div class="contact-icon">
+                                <i class="fas fa-envelope"></i>
+                            </div>
+                            <div class="contact-details">
+                                <h3>Email</h3>
+                                <p>hello@myblog.com</p>
+                                <span>I'll respond within 24 hours</span>
+                            </div>
+                        </div>
+                        
+                        <div class="contact-item">
+                            <div class="contact-icon">
+                                <i class="fas fa-phone"></i>
+                            </div>
+                            <div class="contact-details">
+                                <h3>Phone</h3>
+                                <p>+1 (555) 123-4567</p>
+                                <span>Mon-Fri, 9AM-6PM EST</span>
+                            </div>
+                        </div>
+                        
+                        <div class="contact-item">
+                            <div class="contact-icon">
+                                <i class="fas fa-map-marker-alt"></i>
+                            </div>
+                            <div class="contact-details">
+                                <h3>Location</h3>
+                                <p>New York, NY</p>
+                                <span>Available for meetings</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="social-links">
+                        <h3>Follow Me</h3>
+                        <div class="social-links-list">
+                            <a href="#" class="social-link"><i class="fab fa-twitter"></i> Twitter</a>
+                            <a href="#" class="social-link"><i class="fab fa-linkedin"></i> LinkedIn</a>
+                            <a href="#" class="social-link"><i class="fab fa-instagram"></i> Instagram</a>
+                            <a href="#" class="social-link"><i class="fab fa-github"></i> GitHub</a>
+                        </div>
+                    </div>
+                </div>
+                
+                <form class="contact-form" id="contact-form">
+                    <h2>Send Me a Message</h2>
+                    <div class="form-group">
+                        <label for="name">Name *</label>
+                        <input type="text" id="name" name="name" placeholder="Your full name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email *</label>
+                        <input type="email" id="email" name="email" placeholder="your.email@example.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="subject">Subject *</label>
+                        <input type="text" id="subject" name="subject" placeholder="What's this about?" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="message">Message *</label>
+                        <textarea id="message" name="message" placeholder="Tell me what's on your mind..." rows="6" required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane"></i> Send Message
+                    </button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section class="faq-section">
+        <div class="container">
+            <h2 class="section-title">Frequently Asked Questions</h2>
+            <div class="faq-grid">
+                <div class="faq-item">
+                    <h3>How often do you post new content?</h3>
+                    <p>I typically publish 2-3 new blog posts per week, covering various topics including technology, lifestyle, travel, and food. You can subscribe to my newsletter to stay updated!</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Do you accept guest posts?</h3>
+                    <p>Yes! I'm always interested in collaborating with other writers and creators. If you have an idea for a guest post, please reach out through the contact form.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Can I use your content?</h3>
+                    <p>My content is protected by copyright, but I'm happy to discuss usage rights for specific purposes. Please contact me to discuss your needs.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Do you offer consulting services?</h3>
+                    <p>Yes, I offer web development and content strategy consulting. Feel free to reach out to discuss your project requirements and how I can help.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>My Blog</h3>
+                    <p>Sharing thoughts, stories, and insights about life, technology, and everything in between.</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Quick Links</h4>
+                    <ul>
+                        <li><a href="home.html">Home</a></li>
+                        <li><a href="about.html">About</a></li>
+                        <li><a href="blog.html">Blog</a></li>
+                        <li><a href="contact.html">Contact</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Categories</h4>
+                    <ul>
+                        <li><a href="blog.html?category=technology">Technology</a></li>
+                        <li><a href="blog.html?category=lifestyle">Lifestyle</a></li>
+                        <li><a href="blog.html?category=travel">Travel</a></li>
+                        <li><a href="blog.html?category=food">Food</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Follow Me</h4>
+                    <div class="social-links">
+                        <a href="#" class="social-link"><i class="fab fa-twitter"></i></a>
+                        <a href="#" class="social-link"><i class="fab fa-linkedin"></i></a>
+                        <a href="#" class="social-link"><i class="fab fa-instagram"></i></a>
+                        <a href="#" class="social-link"><i class="fab fa-github"></i></a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 My Blog. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
+

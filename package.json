@@ -1,0 +1,66 @@
+{
+  "name": "customizable-blog-platform",
+  "version": "1.0.0",
+  "description": "A full-featured customizable blog platform with user authentication and content management",
+  "main": "index.js",
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "nodemon server/index.js",
+    "client": "react-scripts start",
+    "seed": "node server/seed.js"
+  },
+  "dependencies": {
+    "@headlessui/react": "^1.7.0",
+    "@heroicons/react": "^2.0.0",
+    "@tailwindcss/forms": "^0.5.10",
+    "@tailwindcss/typography": "^0.5.18",
+    "axios": "^1.3.0",
+    "clsx": "^1.2.1",
+    "date-fns": "^2.29.0",
+    "lucide-react": "^0.263.0",
+    "quill": "^1.3.7",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-hook-form": "^7.43.0",
+    "react-hot-toast": "^2.4.0",
+    "react-markdown": "^8.0.0",
+    "react-query": "^3.39.0",
+    "react-quill": "^2.0.0",
+    "react-router-dom": "^6.8.0",
+    "react-scripts": "5.0.1",
+    "react-syntax-highlighter": "^15.5.0",
+    "tailwindcss": "^3.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "bcryptjs": "^2.4.3",
+    "concurrently": "^7.6.0",
+    "cors": "^2.8.0",
+    "dotenv": "^16.0.0",
+    "express": "^4.18.0",
+    "jsonwebtoken": "^9.0.0",
+    "mongoose": "^6.10.0",
+    "multer": "^1.4.0",
+    "nodemon": "^2.0.0",
+    "typescript": "^4.9.0"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "proxy": "http://localhost:5001"
+}
+
