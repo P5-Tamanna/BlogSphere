@@ -558,7 +558,7 @@ app.post('/api/comments', authenticateToken, async (req, res) => {
 });
 
 // Upload routes
-app.post('/api/upload/image', (req, res) => {
+app.post('/api/upload/image', authenticateToken, (req, res) => {
   upload.single('image')(req, res, (err) => {
     if (err) {
       if (err instanceof multer.MulterError) {
