@@ -1,277 +1,193 @@
-# Customizable Blog Platform
+# BlogSphere
 
-A full-featured, customizable blog platform built with React, Node.js, and MongoDB. Features user authentication, content creation, dynamic post display, and a modern responsive design.
+A full-stack blog platform built with **React 18**, **Node.js / Express** and **MongoDB**. Users can register, write posts with a rich text editor, upload images, and interact with posts through comments, likes and bookmarks.
 
 ## Features
 
-### 🚀 Core Features
-- **User Authentication** - Secure login/register with JWT tokens
-- **Content Management** - Rich text editor for creating and editing posts
-- **Dynamic Blog Display** - Search, filter, and pagination
-- **User Dashboard** - Personal dashboard with post management
-- **Responsive Design** - Mobile-first, modern UI/UX
-- **Real-time Updates** - Live content updates and notifications
+### Content
+- **Rich text editor** (React Quill) for creating and editing posts
+- **Featured image upload** (up to 5 MB, images only)
+- **Categories and tags**
+- **Draft system**: save drafts and publish when ready
+- **Blog page** with category filter, sorting (newest, oldest, most viewed) and pagination
+- **Grid and list views**
 
-### 📝 Content Features
-- **Rich Text Editor** - WYSIWYG editor with formatting options
-- **Image Upload** - Featured image and media support
-- **Categories & Tags** - Organize content with categories and tags
-- **SEO Optimization** - Meta tags and SEO-friendly URLs
-- **Draft System** - Save drafts and publish when ready
-- **Post Analytics** - View counts, likes, and engagement metrics
+### Users
+- **Register and login** with JWT authentication and hashed passwords
+- **Personal dashboard** with post statistics, recent posts (including drafts) and saved posts
+- **Profile page** with bio, website and social links
+- **Role-based access**: authors can edit and delete their own posts, admins can manage any post
 
-### 👥 User Management
-- **Role-based Access** - User, Admin, and Moderator roles
-- **Profile Management** - Customizable user profiles
-- **Social Integration** - Social media links and sharing
-- **Comment System** - Interactive commenting on posts
-
-### 🎨 Customization
-- **Theme Support** - Customizable color schemes
-- **Layout Options** - Flexible grid and list views
-- **Category Management** - Create and manage content categories
-- **Settings Panel** - Comprehensive configuration options
+### Interaction
+- **Comments** on every post (login required)
+- **Likes**: one like per user per post, with a live counter
+- **Bookmarks**: save posts and find them on your dashboard
+- **View counter** on every post
 
 ## Tech Stack
 
-### Frontend
-- **React 18** - Modern React with hooks
-- **React Router** - Client-side routing
-- **React Query** - Data fetching and caching
-- **React Hook Form** - Form management
-- **React Quill** - Rich text editor
-- **Tailwind CSS** - Utility-first CSS framework
-- **Lucide React** - Beautiful icons
-- **React Hot Toast** - Notifications
+**Frontend:** React 18, React Router, React Query, React Hook Form, React Quill, Tailwind CSS, Lucide React, React Hot Toast, Axios
 
-### Backend
-- **Node.js** - JavaScript runtime
-- **Express.js** - Web framework
-- **MongoDB** - NoSQL database
-- **Mongoose** - MongoDB object modeling
-- **JWT** - JSON Web Tokens for authentication
-- **Bcrypt** - Password hashing
-- **Multer** - File upload handling
-- **CORS** - Cross-origin resource sharing
+**Backend:** Node.js, Express, MongoDB, Mongoose, JSON Web Tokens, bcryptjs, Multer, CORS
 
-## Installation & Setup
+## Getting Started
 
 ### Prerequisites
-- Node.js (v14 or higher)
-- MongoDB (v4.4 or higher)
-- npm or yarn
+- Node.js 16 or higher
+- MongoDB running locally (or a MongoDB Atlas connection string)
+- npm
 
-### 1. Clone the Repository
+### 1. Clone the repository
 ```bash
-git clone <repository-url>
-cd customizable-blog-platform
+git clone https://github.com/P5-Tamanna/BlogSphere.git
+cd BlogSphere
 ```
 
-### 2. Install Dependencies
+### 2. Install dependencies
+All dependencies (frontend and backend) are in the root `package.json`:
 ```bash
-# Install frontend dependencies
 npm install
-
-# Install backend dependencies
-cd server
-npm install
-cd ..
 ```
 
-### 3. Environment Configuration
+### 3. Configure environment variables
+Copy the example file and edit it.
+
+macOS / Linux:
 ```bash
-# Copy the environment example file
 cp env.example .env
-
-# Edit the .env file with your configuration
-nano .env
+```
+Windows:
+```bash
+copy env.example .env
 ```
 
-Required environment variables:
-```env
+Your `.env` should look like this:
+```
 MONGODB_URI=mongodb://localhost:27017/blogplatform
-JWT_SECRET=your-super-secret-jwt-key-here
-PORT=5000
-REACT_APP_API_URL=http://localhost:5000/api
+JWT_SECRET=change-this-to-a-long-random-string
+PORT=5001
+REACT_APP_API_URL=http://localhost:5001/api
+UPLOAD_PATH=uploads
+MAX_FILE_SIZE=5242880
 ```
+**Never commit your `.env` file.** It is already listed in `.gitignore`.
 
-### 4. Database Setup
+### 4. Start MongoDB
+Make sure MongoDB is running (for example `mongod`, or the MongoDB service on Windows). The app creates the database and collections automatically.
+
+### 5. Run the app
 ```bash
-# Start MongoDB (if not already running)
-mongod
-
-# The application will automatically create the database and collections
-```
-
-### 5. Run the Application
-
-#### Development Mode (Recommended)
-```bash
-# Run both frontend and backend concurrently
 npm run dev
 ```
+This starts the API and the React app together.
 
-#### Production Mode
-```bash
-# Build the frontend
-npm run build
-
-# Start the backend server
-npm run server
-```
-
-### 6. Access the Application
 - Frontend: http://localhost:3000
-- Backend API: http://localhost:5000/api
+- API: http://localhost:5001/api
+
+To run only one part: `npm run server` (API) or `npm run client` (React).
+
+### Making a user an admin
+Open the `users` collection in MongoDB (for example with MongoDB Compass) and set the user's `role` field to `admin`. Admins can edit and delete any post.
 
 ## Project Structure
 
 ```
-customizable-blog-platform/
-├── public/
-│   └── index.html
+BlogSphere/
+├── public/                  # index.html and static assets
 ├── src/
-│   ├── components/          # Reusable UI components
-│   ├── contexts/           # React contexts (Auth, Theme, etc.)
-│   ├── pages/              # Page components
-│   ├── services/           # API services
-│   ├── utils/              # Utility functions
-│   ├── App.js              # Main App component
-│   ├── index.js            # Entry point
-│   └── index.css           # Global styles
+│   ├── components/          # Navbar, Footer, BlogCard, ProtectedRoute, LoadingSpinner
+│   ├── contexts/            # AuthContext (login state)
+│   ├── pages/               # Home, Blog, BlogPost, Dashboard, CreatePost, EditPost,
+│   │                        # Profile, Settings, Login, Register, About, Contact
+│   ├── services/            # api.js (Axios API calls)
+│   ├── utils/               # postHelpers.js (image URLs, dates, colors)
+│   ├── App.js               # Routes
+│   ├── index.js             # Entry point
+│   └── index.css            # Global styles and Tailwind
 ├── server/
-│   ├── models/             # MongoDB models
-│   ├── routes/             # API routes
-│   ├── middleware/         # Custom middleware
-│   └── index.js            # Server entry point
-├── uploads/                # File uploads directory
-├── package.json
+│   ├── models/              # User, Post, Category, Comment
+│   └── index.js             # Express API (all routes)
+├── uploads/                 # Uploaded images
+├── env.example              # Example environment variables
 ├── tailwind.config.js
-└── README.md
+└── package.json
 ```
+The `.html` files, `script.js` and `styles.css` in the root are an early static prototype and are not used by the React app.
 
 ## API Endpoints
 
 ### Authentication
-- `POST /api/auth/register` - User registration
-- `POST /api/auth/login` - User login
-- `GET /api/auth/profile` - Get user profile
-- `PUT /api/auth/profile` - Update user profile
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/auth/register` | Create an account |
+| POST | `/api/auth/login` | Log in |
+| GET | `/api/auth/profile` | Get the logged-in user |
+| PUT | `/api/auth/profile` | Update the profile |
 
 ### Posts
-- `GET /api/posts` - Get all posts (with pagination, filtering)
-- `GET /api/posts/:id` - Get single post
-- `POST /api/posts` - Create new post
-- `PUT /api/posts/:id` - Update post
-- `DELETE /api/posts/:id` - Delete post
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/posts` | List published posts (pagination, category, sort, author) |
+| GET | `/api/posts/:id` | Get one post with its comments, likes and bookmark state |
+| POST | `/api/posts` | Create a post (login required) |
+| PUT | `/api/posts/:id` | Update a post (author or admin) |
+| DELETE | `/api/posts/:id` | Delete a post (author or admin) |
+| POST | `/api/posts/:id/comments` | Add a comment (login required) |
+| POST | `/api/posts/:id/like` | Like or unlike a post (login required) |
+| POST | `/api/posts/:id/bookmark` | Bookmark or unbookmark a post (login required) |
+| GET | `/api/bookmarks` | Get your saved posts (login required) |
 
-### Categories
-- `GET /api/categories` - Get all categories
-- `POST /api/categories` - Create category
+### Categories and comments
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/categories` | List categories |
+| POST | `/api/categories` | Create a category (login required) |
+| GET | `/api/comments/post/:postId` | List comments of a post |
+| POST | `/api/comments` | Create a comment (login required) |
 
-### Comments
-- `GET /api/comments/post/:postId` - Get post comments
-- `POST /api/comments` - Create comment
+### Uploads
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/upload/image` | Upload an image, returns its `/uploads/...` address |
 
-### File Upload
-- `POST /api/upload/image` - Upload image
+## Usage
 
-## Usage Guide
+1. Register an account or log in.
+2. Open the **Dashboard** and click **Create New Post**.
+3. Add a title, excerpt, category, tags, a featured image and your content.
+4. Click **Save Draft** or **Publish Post**.
+5. Open any post to comment, like or bookmark it. Saved posts appear on your Dashboard.
 
-### Creating Your First Post
-1. Register a new account or login
-2. Navigate to Dashboard
-3. Click "Create New Post"
-4. Fill in the post details (title, excerpt, category)
-5. Write your content using the rich text editor
-6. Upload a featured image (optional)
-7. Save as draft or publish immediately
+## Deployment notes
 
-### Managing Categories
-1. Go to Dashboard > Settings
-2. Navigate to Categories section
-3. Add new categories with names and descriptions
-4. Assign colors and icons for better organization
+- Use **MongoDB Atlas** for a hosted database and set `MONGODB_URI` in your hosting dashboard.
+- Set a strong, random `JWT_SECRET` in production.
+- Uploaded images are stored on the server's disk (`uploads/`). Most hosting platforms reset the disk on every deploy, so use a storage service such as Cloudinary or AWS S3 in production.
+- Build the frontend with `npm run build` and deploy the `build` folder to a static host (Netlify, Vercel). Set `REACT_APP_API_URL` to your deployed API address before building.
 
-### User Management
-- **Admin users** can manage all posts and users
-- **Regular users** can only manage their own posts
-- **Moderators** can approve comments and moderate content
+## Roadmap
 
-## Customization
-
-### Styling
-- Modify `tailwind.config.js` for theme customization
-- Update `src/index.css` for global styles
-- Customize component styles in individual component files
-
-### Features
-- Add new API endpoints in `server/index.js`
-- Create new React components in `src/components/`
-- Add new pages in `src/pages/`
-
-### Database
-- Modify models in `server/models/` directory
-- Add new fields or relationships as needed
-
-## Deployment
-
-### Frontend (Netlify/Vercel)
-1. Build the project: `npm run build`
-2. Deploy the `build` folder to your hosting service
-3. Set environment variables in your hosting dashboard
-
-### Backend (Heroku/Railway)
-1. Set up MongoDB Atlas for production database
-2. Deploy server code to your hosting service
-3. Configure environment variables
-4. Set up file storage (AWS S3, Cloudinary, etc.)
-
-### Full Stack (VPS)
-1. Set up a VPS with Node.js and MongoDB
-2. Clone the repository
-3. Install dependencies
-4. Configure environment variables
-5. Use PM2 for process management
-6. Set up Nginx as reverse proxy
+- [ ] Working search on the blog page
+- [ ] Change password and forgot password (email reset)
+- [ ] Edit and delete comments
+- [ ] Moderator role and comment moderation
+- [ ] Email notifications
+- [ ] Share button (copy link)
+- [ ] Cloud image storage
+- [ ] Advanced analytics on the dashboard
 
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch: `git checkout -b feature-name`
-3. Commit changes: `git commit -m 'Add feature'`
-4. Push to branch: `git push origin feature-name`
-5. Submit a pull request
+2. Create a branch: `git checkout -b feature-name`
+3. Commit your changes: `git commit -m "Add feature"`
+4. Push the branch: `git push origin feature-name`
+5. Open a pull request
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Support
-
-For support and questions:
-- Create an issue in the GitHub repository
-- Check the documentation
-- Contact the development team
-
-## Roadmap
-
-### Upcoming Features
-- [ ] Email notifications
-- [ ] Advanced analytics dashboard
-- [ ] Multi-language support
-- [ ] Mobile app (React Native)
-- [ ] Advanced SEO tools
-- [ ] Social media integration
-- [ ] Comment moderation tools
-- [ ] Newsletter system
-- [ ] Advanced search with filters
-- [ ] Content scheduling
-- [ ] User roles and permissions
-- [ ] API rate limiting
-- [ ] Content backup and restore
+MIT License.
 
 ---
 
-Built with ❤️ using React, Node.js, and MongoDB
-
+Built with React, Node.js and MongoDB.
