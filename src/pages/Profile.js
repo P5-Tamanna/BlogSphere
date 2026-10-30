@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 import { User, Mail, Globe, Camera, Save, Edit3, Twitter, Linkedin, Github, Instagram } from 'lucide-react';
 
 const Profile = () => {
-  const { user, updateProfile } = useAuth();
+  const { user, updateUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const queryClient = useQueryClient();

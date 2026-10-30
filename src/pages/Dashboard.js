@@ -1,59 +1,76 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
+import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
-import { postsAPI } from '../services/api';
-import { 
-  Plus, 
-  Edit3, 
-  Eye, 
-  Heart, 
-  MessageCircle, 
-  TrendingUp,
+import { postsAPI, bookmarksAPI } from '../services/api';
+import BlogCard from '../components/BlogCard';
+import {
+  Plus,
+  Edit3,
+  Trash2,
+  Eye,
+  Heart,
+  MessageCircle,
   Calendar,
-  BarChart3,
-  Users,
-  BookOpen
+  BookOpen,
 } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
-  // Fetch user's posts
-  const { data: postsData, isLoading: postsLoading } = useQuery(
-    'user-posts',
-    () => postsAPI.getByUser(user._id),
+  const deletePostMutation = useMutation((postId) => postsAPI.delete(postId), {
+    onSuccess: () => {
+      queryClient.invalidateQueries('dashboard-posts');
+      queryClient.invalidateQueries('posts');
+      toast.success('Post deleted');
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to delete post');
+    },
+  });
+
+  const handleDelete = (post) => {
+    if (window.confirm(`Delete "${post.title}"? This cannot be undone.`)) {
+      deletePostMutation.mutate(post._id);
+    }
+  };
+
+  // One query for everything: this is the route that already works
+  const { data: posts = [], isLoading } = useQuery(
+    ['dashboard-posts', user?._id],
+    () => postsAPI.getAll({ author: user._id, limit: 100 }),
     {
-      select: (response) => response.data.posts,
+      enabled: !!user?._id,
+      select: (response) => response.data.posts || [],
     }
   );
 
-  // Fetch dashboard stats
-  const { data: statsData, isLoading: statsLoading } = useQuery(
-    'dashboard-stats',
-    () => postsAPI.getAll({ author: user._id }),
+  // Posts the user has bookmarked
+  const { data: savedPosts = [] } = useQuery(
+    'saved-posts',
+    () => bookmarksAPI.getAll(),
     {
-      select: (response) => {
-        const posts = response.data.posts;
-        const totalViews = posts.reduce((sum, post) => sum + (post.views || 0), 0);
-        const totalLikes = posts.reduce((sum, post) => sum + (post.likes || 0), 0);
-        const totalComments = posts.reduce((sum, post) => sum + (post.comments?.length || 0), 0);
-        
-        return {
-          totalPosts: posts.length,
-          totalViews,
-          totalLikes,
-          totalComments,
-          publishedPosts: posts.filter(post => post.status === 'published').length,
-          draftPosts: posts.filter(post => post.status === 'draft').length,
-        };
-      },
+      select: (response) => response.data.posts || [],
     }
   );
 
-  const posts = postsData || [];
-  const stats = statsData || {};
+  const stats = useMemo(
+    () => ({
+      totalPosts: posts.length,
+      totalViews: posts.reduce((sum, post) => sum + (post.views || 0), 0),
+      totalLikes: posts.reduce((sum, post) => sum + (post.likes || 0), 0),
+      totalComments: posts.reduce(
+        (sum, post) => sum + (post.comments?.length || 0),
+        0
+      ),
+      publishedPosts: posts.filter((post) => post.status === 'published').length,
+      draftPosts: posts.filter((post) => post.status === 'draft').length,
+    }),
+    [posts]
+  );
 
   const recentPosts = posts.slice(0, 5);
 
@@ -71,14 +88,16 @@ const Dashboard = () => {
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '';
+    return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
     });
   };
 
-  if (postsLoading || statsLoading) {
+  if (isLoading) {
     return <LoadingSpinner />;
   }
 
@@ -144,7 +163,6 @@ const Dashboard = () => {
 
         {/* Quick Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-          {/* Create New Post */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
@@ -177,10 +195,14 @@ const Dashboard = () => {
           {/* Post Status Overview */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Post Status Overview</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Post Status Overview
+              </h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center p-4 bg-green-50 rounded-lg">
-                  <p className="text-2xl font-bold text-green-600">{stats.publishedPosts}</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {stats.publishedPosts}
+                  </p>
                   <p className="text-sm text-green-600">Published</p>
                 </div>
                 <div className="text-center p-4 bg-yellow-50 rounded-lg">
@@ -205,17 +227,16 @@ const Dashboard = () => {
               </Link>
             </div>
           </div>
-          
+
           <div className="divide-y divide-gray-200">
             {recentPosts.length === 0 ? (
               <div className="p-6 text-center">
                 <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No posts yet</h3>
-                <p className="text-gray-600 mb-4">Get started by creating your first post!</p>
-                <Link
-                  to="/create-post"
-                  className="btn btn-primary"
-                >
+                <p className="text-gray-600 mb-4">
+                  Get started by creating your first post!
+                </p>
+                <Link to="/create-post" className="btn btn-primary">
                   <Plus className="h-4 w-4 mr-2" />
                   Create Post
                 </Link>
@@ -227,10 +248,7 @@ const Dashboard = () => {
                     <div className="flex-1">
                       <div className="flex items-center space-x-3 mb-2">
                         <h4 className="text-lg font-medium text-gray-900">
-                          <Link
-                            to={`/blog/${post._id}`}
-                            className="hover:text-blue-600"
-                          >
+                          <Link to={`/blog/${post._id}`} className="hover:text-blue-600">
                             {post.title}
                           </Link>
                         </h4>
@@ -269,6 +287,15 @@ const Dashboard = () => {
                       >
                         <Edit3 className="h-4 w-4" />
                       </Link>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(post)}
+                        disabled={deletePostMutation.isLoading}
+                        title="Delete post"
+                        className="p-2 text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -276,10 +303,25 @@ const Dashboard = () => {
             )}
           </div>
         </div>
+
+        {/* Saved Posts */}
+        <div className="mt-8">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Saved Posts</h3>
+          {savedPosts.length === 0 ? (
+            <div className="bg-white rounded-lg shadow p-6 text-center text-gray-600">
+              Posts you bookmark will appear here.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {savedPosts.map((post) => (
+                <BlogCard key={post._id} post={post} />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 };
 
 export default Dashboard;
-

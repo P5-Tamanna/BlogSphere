@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -18,16 +18,14 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Handle token expiration
+// Handle token expiration (only if the user was actually logged in)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && localStorage.getItem('token')) {
       localStorage.removeItem('token');
       window.location.href = '/login';
     }
@@ -41,6 +39,7 @@ export const authAPI = {
   register: (userData) => api.post('/auth/register', userData),
   getProfile: () => api.get('/auth/profile'),
   updateProfile: (profileData) => api.put('/auth/profile', profileData),
+  updatePassword: (data) => api.put('/auth/password', data), // check this matches your server route
 };
 
 // Posts API
@@ -51,8 +50,16 @@ export const postsAPI = {
   update: (id, postData) => api.put(`/posts/${id}`, postData),
   delete: (id) => api.delete(`/posts/${id}`),
   getByUser: (userId) => api.get(`/posts/user/${userId}`),
-  search: (query) => api.get(`/posts/search?q=${query}`),
+  search: (query) => api.get('/posts/search', { params: { q: query } }),
   getByCategory: (category) => api.get(`/posts/category/${category}`),
+  addComment: (postId, commentData) => api.post(`/posts/${postId}/comments`, commentData),
+  toggleLike: (postId) => api.post(`/posts/${postId}/like`),
+  toggleBookmark: (postId) => api.post(`/posts/${postId}/bookmark`),
+};
+
+// Bookmarks API
+export const bookmarksAPI = {
+  getAll: () => api.get('/bookmarks'),
 };
 
 // Categories API
@@ -81,17 +88,14 @@ export const usersAPI = {
 
 // Upload API
 export const uploadAPI = {
-  uploadImage: (formData) => api.post('/upload/image', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  }),
-  uploadFile: (formData) => api.post('/upload/file', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  }),
+  uploadImage: (formData) =>
+    api.post('/upload/image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+  uploadFile: (formData) =>
+    api.post('/upload/file', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
 };
 
 export default api;
-

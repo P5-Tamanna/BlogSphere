@@ -1,10 +1,10 @@
 const express = require('express');
+const path = require('path');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
-const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -14,12 +14,17 @@ const PORT = process.env.PORT || 5001;
 app.use(cors());
 app.use(express.json());
 app.use(express.static('uploads'));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // MongoDB connection
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/blogplatform', {
   useNewUrlParser: true,
   useUnifiedTopology: true,
+})
+.then(() => console.log('MongoDB connected successfully'))
+.catch(err => {
+  console.error('MongoDB connection error:', err);
+  process.exit(1);
 });
 
 // Models
@@ -27,6 +32,27 @@ const User = require('./models/User');
 const Post = require('./models/Post');
 const Category = require('./models/Category');
 const Comment = require('./models/Comment');
+
+// Likes and bookmarks (one record per user per post)
+const likeSchema = new mongoose.Schema(
+  {
+    post: { type: mongoose.Schema.Types.ObjectId, ref: 'Post', required: true },
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  },
+  { timestamps: true }
+);
+likeSchema.index({ post: 1, user: 1 }, { unique: true });
+const Like = mongoose.models.Like || mongoose.model('Like', likeSchema);
+
+const bookmarkSchema = new mongoose.Schema(
+  {
+    post: { type: mongoose.Schema.Types.ObjectId, ref: 'Post', required: true },
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  },
+  { timestamps: true }
+);
+bookmarkSchema.index({ post: 1, user: 1 }, { unique: true });
+const Bookmark = mongoose.models.Bookmark || mongoose.model('Bookmark', bookmarkSchema);
 
 // Multer configuration for file uploads
 const storage = multer.diskStorage({
@@ -64,11 +90,31 @@ const authenticateToken = (req, res, next) => {
 
   jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key', (err, user) => {
     if (err) {
-      return res.status(403).json({ message: 'Invalid or expired token' });
+      // 401 so the website logs the user out automatically when the token expires
+      return res.status(401).json({ message: 'Invalid or expired token' });
     }
     req.user = user;
     next();
   });
+};
+
+// Reads the logged-in user if a valid token is sent, but never blocks the request
+const getOptionalUser = (req) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return null;
+  try {
+    return jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+  } catch (err) {
+    return null;
+  }
+};
+
+// True if the user wrote the post, or has the "admin" role
+const canManagePost = async (post, userId) => {
+  if (post.author.toString() === String(userId)) return true;
+  const requester = await User.findById(userId).select('role');
+  return requester?.role === 'admin';
 };
 
 // Routes
@@ -198,7 +244,14 @@ app.get('/api/posts', async (req, res) => {
     
     if (category) query.category = category;
     if (featured) query.featured = true;
-    if (author) query.author = author;
+    if (author) {
+      query.author = author;
+      // The owner can also see their own drafts and archived posts (for the Dashboard)
+      const viewer = getOptionalUser(req);
+      if (viewer && String(viewer.userId) === String(author)) {
+        delete query.status;
+      }
+    }
 
     let sortOptions = {};
     switch (sort) {
@@ -241,9 +294,7 @@ app.get('/api/posts', async (req, res) => {
 app.get('/api/posts/:id', async (req, res) => {
   try {
     const post = await Post.findById(req.params.id)
-      .populate('author', 'name email bio')
-      .populate('category', 'name')
-      .populate('comments.author', 'name email');
+      .populate('author', 'name email bio');
 
     if (!post) {
       return res.status(404).json({ message: 'Post not found' });
@@ -253,7 +304,24 @@ app.get('/api/posts/:id', async (req, res) => {
     post.views = (post.views || 0) + 1;
     await post.save();
 
-    res.json({ post });
+    // Comments come from the Comment model
+    const comments = await Comment.find({ post: post._id })
+      .populate('author', 'name email')
+      .sort({ createdAt: -1 });
+
+    // Like / bookmark info for the person viewing the post
+    const viewer = getOptionalUser(req);
+    const likesCount = await Like.countDocuments({ post: post._id });
+    let liked = false;
+    let bookmarked = false;
+    if (viewer) {
+      liked = !!(await Like.exists({ post: post._id, user: viewer.userId }));
+      bookmarked = !!(await Bookmark.exists({ post: post._id, user: viewer.userId }));
+    }
+
+    res.json({
+      post: { ...post.toObject(), comments, likes: likesCount, liked, bookmarked },
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -261,12 +329,15 @@ app.get('/api/posts/:id', async (req, res) => {
 
 app.post('/api/posts', authenticateToken, upload.single('image'), async (req, res) => {
   try {
-    const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
+    // Image can come from a file in the form OR from an address uploaded earlier
+    const imagePath = req.file
+      ? `/uploads/${req.file.filename}`
+      : req.body.image || null;
 
     const postData = {
       ...req.body,
       author: req.user.userId,
-      image: imagePath, // <-- attach image here
+      image: imagePath,
     };
 
     const post = new Post(postData);
@@ -282,7 +353,103 @@ app.post('/api/posts', authenticateToken, upload.single('image'), async (req, re
   }
 });
 
+// Add a comment to a post
+app.post('/api/posts/:id/comments', authenticateToken, async (req, res) => {
+  try {
+    const content = (req.body.content || '').trim();
+    if (!content) {
+      return res.status(400).json({ message: 'Comment cannot be empty' });
+    }
 
+    const post = await Post.findById(req.params.id);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    const comment = new Comment({
+      post: post._id,
+      author: req.user.userId,
+      content,
+    });
+    await comment.save();
+
+    const populatedComment = await Comment.findById(comment._id)
+      .populate('author', 'name email');
+
+    res.status(201).json({ comment: populatedComment });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Like / unlike a post (toggle)
+app.post('/api/posts/:id/like', authenticateToken, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    const filter = { post: post._id, user: req.user.userId };
+    const existing = await Like.findOne(filter);
+    let liked;
+    if (existing) {
+      await Like.deleteOne({ _id: existing._id });
+      liked = false;
+    } else {
+      await Like.create(filter);
+      liked = true;
+    }
+
+    const likes = await Like.countDocuments({ post: post._id });
+    await Post.findByIdAndUpdate(post._id, { likes }); // keeps Dashboard totals correct
+    res.json({ liked, likes });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Bookmark / unbookmark a post (toggle)
+app.post('/api/posts/:id/bookmark', authenticateToken, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    const filter = { post: post._id, user: req.user.userId };
+    const existing = await Bookmark.findOne(filter);
+    let bookmarked;
+    if (existing) {
+      await Bookmark.deleteOne({ _id: existing._id });
+      bookmarked = false;
+    } else {
+      await Bookmark.create(filter);
+      bookmarked = true;
+    }
+
+    res.json({ bookmarked });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// The logged-in user's saved posts
+app.get('/api/bookmarks', authenticateToken, async (req, res) => {
+  try {
+    const bookmarks = await Bookmark.find({ user: req.user.userId })
+      .sort({ createdAt: -1 })
+      .populate({ path: 'post', populate: { path: 'author', select: 'name email' } });
+
+    const posts = bookmarks
+      .map((b) => b.post)
+      .filter((p) => p && p.status === 'published');
+
+    res.json({ posts });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 
 app.put('/api/posts/:id', authenticateToken, async (req, res) => {
   try {
@@ -292,14 +459,21 @@ app.put('/api/posts/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Post not found' });
     }
 
-    // Check if user owns the post or is admin
-    if (post.author.toString() !== req.user.userId) {
+    // Only the author or an admin may do this
+    if (!(await canManagePost(post, req.user.userId))) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
+    // Only these fields can be changed (blocks changing author, views, likes...)
+    const allowedFields = ['title', 'excerpt', 'content', 'image', 'category', 'tags', 'status'];
+    const updates = {};
+    allowedFields.forEach((field) => {
+      if (req.body[field] !== undefined) updates[field] = req.body[field];
+    });
+
     const updatedPost = await Post.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updates,
       { new: true }
     ).populate('author', 'name email').populate('category', 'name');
 
@@ -317,12 +491,15 @@ app.delete('/api/posts/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Post not found' });
     }
 
-    // Check if user owns the post or is admin
-    if (post.author.toString() !== req.user.userId) {
+    // Only the author or an admin may do this
+    if (!(await canManagePost(post, req.user.userId))) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
     await Post.findByIdAndDelete(req.params.id);
+    await Comment.deleteMany({ post: req.params.id }); // remove its comments too
+    await Like.deleteMany({ post: req.params.id });
+    await Bookmark.deleteMany({ post: req.params.id });
     res.json({ message: 'Post deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -398,7 +575,8 @@ app.post('/api/upload/image', (req, res) => {
 
     res.json({
       message: 'File uploaded successfully',
-      url: `http://localhost:5000/uploads/${req.file.filename}`,
+      // Relative address: works on any port or domain
+      url: `/uploads/${req.file.filename}`,
     });
   });
 });
@@ -413,4 +591,3 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-

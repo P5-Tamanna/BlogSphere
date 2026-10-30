@@ -46,7 +46,7 @@ const Settings = () => {
     (data) => authAPI.updateProfile(data),
     {
       onSuccess: (response) => {
-        updateProfile(response.data.user);
+        updateUser(response.data.user);
         toast.success('Profile updated successfully!');
       },
       onError: (error) => {

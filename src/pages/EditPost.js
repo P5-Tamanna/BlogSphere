@@ -8,22 +8,40 @@ import { ArrowLeft, Save, Eye, Upload, X } from 'lucide-react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { getImageUrl } from '../utils/postHelpers';
+
+const quillModules = {
+  toolbar: [
+    [{ header: [1, 2, 3, 4, 5, 6, false] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ color: [] }, { background: [] }],
+    [{ list: 'ordered' }, { list: 'bullet' }],
+    [{ indent: '-1' }, { indent: '+1' }],
+    [{ align: [] }],
+    ['link', 'image', 'video'],
+    ['blockquote', 'code-block'],
+    ['clean'],
+  ],
+};
+
+const quillFormats = [
+  'header', 'bold', 'italic', 'underline', 'strike',
+  'color', 'background', 'list', 'bullet', 'indent',
+  'align', 'link', 'image', 'video', 'blockquote', 'code-block',
+];
 
 const EditPost = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [content, setContent] = useState('');
-  const [featuredImage, setFeaturedImage] = useState(null);
+  const [featuredImage, setFeaturedImage] = useState(null); // saved path/URL from the server
   const [isPreview, setIsPreview] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-    watch,
-    setValue,
     reset,
   } = useForm();
 
@@ -32,20 +50,23 @@ const EditPost = () => {
     ['post', id],
     () => postsAPI.getById(id),
     {
-      select: (response) => response.data.post,
-      onSuccess: (post) => {
-        reset({
-          title: post.title,
-          excerpt: post.excerpt,
-          category: post.category,
-          tags: post.tags?.join(', ') || '',
-          status: post.status,
-        });
-        setContent(post.content);
-        setFeaturedImage(post.image);
-      },
+      select: (response) => response.data.post || response.data,
     }
   );
+
+  // Fill the form once the post has loaded (works even when the data is cached)
+  useEffect(() => {
+    if (!postData) return;
+    reset({
+      title: postData.title || '',
+      excerpt: postData.excerpt || '',
+      category: postData.category || '',
+      tags: postData.tags?.join(', ') || '',
+      status: postData.status || 'draft',
+    });
+    setContent(postData.content || '');
+    setFeaturedImage(postData.image || null);
+  }, [postData?._id]);
 
   // Fetch categories
   const { data: categories } = useQuery(
@@ -58,7 +79,7 @@ const EditPost = () => {
 
   // Update post mutation
   const updatePostMutation = useMutation(
-    (postData) => postsAPI.update(id, postData),
+    (payload) => postsAPI.update(id, payload),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('user-posts');
@@ -81,7 +102,7 @@ const EditPost = () => {
         setFeaturedImage(response.data.url);
         toast.success('Image uploaded successfully!');
       },
-      onError: (error) => {
+      onError: () => {
         toast.error('Failed to upload image');
       },
     }
@@ -90,13 +111,10 @@ const EditPost = () => {
   const handleImageUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
-      // Validate file type
       if (!file.type.startsWith('image/')) {
         toast.error('Please select an image file');
         return;
       }
-      
-      // Validate file size (5MB limit)
       if (file.size > 5 * 1024 * 1024) {
         toast.error('File size must be less than 5MB');
         return;
@@ -108,42 +126,27 @@ const EditPost = () => {
     }
   };
 
-  const onSubmit = async (data) => {
-    if (!content.trim()) {
+  // forcedStatus is used by the "Save as Draft" button
+  const submitPost = (data, forcedStatus) => {
+    if (!content.trim() || content === '<p><br></p>') {
       toast.error('Please add some content to your post');
       return;
     }
 
-    const postData = {
+    updatePostMutation.mutate({
       ...data,
+      status: forcedStatus || data.status,
       content,
       image: featuredImage,
-      tags: data.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
-    };
-
-    setIsSaving(true);
-    updatePostMutation.mutate(postData);
+      tags: (data.tags || '')
+        .split(',')
+        .map((tag) => tag.trim().replace(/^#+/, ''))
+        .filter((tag) => tag),
+    });
   };
 
-  const quillModules = {
-    toolbar: [
-      [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
-      ['bold', 'italic', 'underline', 'strike'],
-      [{ 'color': [] }, { 'background': [] }],
-      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-      [{ 'indent': '-1'}, { 'indent': '+1' }],
-      [{ 'align': [] }],
-      ['link', 'image', 'video'],
-      ['blockquote', 'code-block'],
-      ['clean']
-    ],
-  };
-
-  const quillFormats = [
-    'header', 'bold', 'italic', 'underline', 'strike',
-    'color', 'background', 'list', 'bullet', 'indent',
-    'align', 'link', 'image', 'video', 'blockquote', 'code-block'
-  ];
+  const handleUpdate = handleSubmit((data) => submitPost(data));
+  const handleSaveDraft = handleSubmit((data) => submitPost(data, 'draft'));
 
   if (postLoading) {
     return <LoadingSpinner />;
@@ -154,17 +157,18 @@ const EditPost = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Post Not Found</h2>
-          <p className="text-gray-600 mb-4">The post you're trying to edit doesn't exist.</p>
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="btn btn-primary"
-          >
+          <p className="text-gray-600 mb-4">
+            The post you're trying to edit doesn't exist.
+          </p>
+          <button onClick={() => navigate('/dashboard')} className="btn btn-primary">
             Back to Dashboard
           </button>
         </div>
       </div>
     );
   }
+
+  const isSaving = updatePostMutation.isLoading;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -181,13 +185,12 @@ const EditPost = () => {
           <h1 className="text-3xl font-bold text-gray-900">Edit Post</h1>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={handleUpdate} className="space-y-6">
           <div className="bg-white rounded-lg shadow p-6">
-            {/* Basic Information */}
             <div className="space-y-6">
               {/* Title */}
               <div>
-                <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Post Title *
                 </label>
                 <input
@@ -203,7 +206,7 @@ const EditPost = () => {
 
               {/* Excerpt */}
               <div>
-                <label htmlFor="excerpt" className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Excerpt
                 </label>
                 <textarea
@@ -217,7 +220,7 @@ const EditPost = () => {
               {/* Category and Tags */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Category *
                   </label>
                   <select
@@ -237,21 +240,21 @@ const EditPost = () => {
                 </div>
 
                 <div>
-                  <label htmlFor="tags" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Tags
                   </label>
                   <input
                     {...register('tags')}
                     type="text"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter tags separated by commas"
+                    placeholder="Enter tags separated by commas (no #)"
                   />
                 </div>
               </div>
 
               {/* Status */}
               <div>
-                <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Status
                 </label>
                 <select
@@ -273,7 +276,7 @@ const EditPost = () => {
                   {featuredImage ? (
                     <div className="relative">
                       <img
-                        src={featuredImage}
+                        src={getImageUrl(featuredImage)}
                         alt="Featured"
                         className="w-full h-48 object-cover rounded-lg"
                       />
@@ -288,7 +291,11 @@ const EditPost = () => {
                   ) : (
                     <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                       <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600 mb-2">Upload a featured image</p>
+                      <p className="text-gray-600 mb-2">
+                        {uploadImageMutation.isLoading
+                          ? 'Uploading...'
+                          : 'Upload a featured image'}
+                      </p>
                       <input
                         type="file"
                         accept="image/*"
@@ -296,10 +303,7 @@ const EditPost = () => {
                         className="hidden"
                         id="image-upload"
                       />
-                      <label
-                        htmlFor="image-upload"
-                        className="btn btn-outline cursor-pointer"
-                      >
+                      <label htmlFor="image-upload" className="btn btn-outline cursor-pointer">
                         Choose Image
                       </label>
                     </div>
@@ -312,9 +316,7 @@ const EditPost = () => {
           {/* Content Editor */}
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between mb-4">
-              <label className="block text-sm font-medium text-gray-700">
-                Content *
-              </label>
+              <label className="block text-sm font-medium text-gray-700">Content *</label>
               <button
                 type="button"
                 onClick={() => setIsPreview(!isPreview)}
@@ -346,7 +348,8 @@ const EditPost = () => {
             <div className="flex items-center space-x-4">
               <button
                 type="button"
-                onClick={() => setValue('status', 'draft')}
+                onClick={handleSaveDraft}
+                disabled={isSaving}
                 className="btn btn-secondary"
               >
                 <Save className="h-4 w-4 mr-2" />
@@ -361,11 +364,7 @@ const EditPost = () => {
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="btn btn-primary"
-              >
+              <button type="submit" disabled={isSaving} className="btn btn-primary">
                 {isSaving ? (
                   <div className="flex items-center">
                     <div className="spinner h-4 w-4 mr-2"></div>
@@ -384,4 +383,3 @@ const EditPost = () => {
 };
 
 export default EditPost;
-

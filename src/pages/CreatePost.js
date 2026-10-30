@@ -1,15 +1,35 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useForm } from "react-hook-form";
-import { useQuery } from "react-query";
-import { postsAPI, categoriesAPI } from "../services/api";
-import toast from "react-hot-toast";
-import { ArrowLeft, Save, Eye, Upload, X } from "lucide-react";
-import ReactQuill from "react-quill";
-import "react-quill/dist/quill.snow.css";
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { useQuery } from 'react-query';
+import { postsAPI, categoriesAPI, uploadAPI } from '../services/api';
+import toast from 'react-hot-toast';
+import { ArrowLeft, Save, Eye, Upload, X } from 'lucide-react';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
+
+const quillModules = {
+  toolbar: [
+    [{ header: [1, 2, 3, 4, 5, 6, false] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ color: [] }, { background: [] }],
+    [{ list: 'ordered' }, { list: 'bullet' }],
+    [{ indent: '-1' }, { indent: '+1' }],
+    [{ align: [] }],
+    ['link', 'image', 'video'],
+    ['blockquote', 'code-block'],
+    ['clean'],
+  ],
+};
+
+const quillFormats = [
+  'header', 'bold', 'italic', 'underline', 'strike',
+  'color', 'background', 'list', 'bullet', 'indent',
+  'align', 'link', 'image', 'video', 'blockquote', 'code-block',
+];
 
 const CreatePost = () => {
-  const [content, setContent] = useState("");
+  const [content, setContent] = useState('');
   const [featuredImage, setFeaturedImage] = useState(null);
   const [isPreview, setIsPreview] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -19,123 +39,113 @@ const CreatePost = () => {
     register,
     handleSubmit,
     formState: { errors },
-    setValue,
   } = useForm({
     defaultValues: {
-      title: "",
-      excerpt: "",
-      category: "",
-      tags: "",
-      status: "draft",
+      title: '',
+      excerpt: '',
+      category: '',
+      tags: '',
     },
   });
 
   // Fetch categories
   const { data: categories } = useQuery(
-    "categories",
+    'categories',
     () => categoriesAPI.getAll(),
     {
       select: (response) => response.data.categories,
     }
   );
 
+  // Preview URL for the chosen image (created once, cleaned up afterwards)
+  const previewUrl = useMemo(
+    () => (featuredImage ? URL.createObjectURL(featuredImage) : null),
+    [featuredImage]
+  );
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
   // Handle image selection
   const handleImageUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
-      if (!file.type.startsWith("image/")) {
-        toast.error("Please select an image file");
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please select an image file');
         return;
       }
       if (file.size > 5 * 1024 * 1024) {
-        toast.error("File size must be less than 5MB");
+        toast.error('File size must be less than 5MB');
         return;
       }
       setFeaturedImage(file);
     }
   };
 
-  // Submit post (draft or publish)
-  const onSubmit = async (data) => {
-    if (!content.trim()) {
-      toast.error("Please add some content to your post");
+  // status is passed in directly ("draft" or "published")
+  const submitPost = async (data, status) => {
+    if (!content.trim() || content === '<p><br></p>') {
+      toast.error('Please add some content to your post');
       return;
     }
 
-    const formData = new FormData();
-    formData.append("title", data.title);
-    formData.append("excerpt", data.excerpt);
-    formData.append("category", data.category);
-    formData.append("status", data.status);
-    formData.append("content", content);
-
-    // Tags
-    data.tags
-      .split(",")
-      .map((tag) => tag.trim())
-      .filter((tag) => tag)
-      .forEach((tag) => formData.append("tags[]", tag));
-
-    // Image
-    if (featuredImage instanceof File) {
-      formData.append("image", featuredImage);
-    }
-
     setIsPublishing(true);
-
     try {
-      await postsAPI.create(formData); // must support multipart/form-data in backend
-      toast.success("Post created successfully!");
-      navigate("/dashboard");
+      // Step 1: upload the picture first (same route the Edit page uses)
+      let imageUrl = null;
+      if (featuredImage instanceof File) {
+        const imageData = new FormData();
+        imageData.append('image', featuredImage);
+        const uploadRes = await uploadAPI.uploadImage(imageData);
+        const d = uploadRes.data || {};
+        imageUrl =
+          d.url || d.imageUrl || d.path || d.image || d.file?.url || d.file?.path || null;
+        if (!imageUrl) {
+          console.log('Upload response (no image address found):', uploadRes.data);
+          toast.error('Image uploaded but the server sent no address. Check the console.');
+        }
+      }
+
+      // Step 2: save the post with the image address
+      const createRes = await postsAPI.create({
+        title: data.title,
+        excerpt: data.excerpt || '',
+        category: data.category,
+        status,
+        content,
+        image: imageUrl,
+        tags: (data.tags || '')
+          .split(',')
+          .map((tag) => tag.trim().replace(/^#+/, ''))
+          .filter((tag) => tag),
+      });
+
+      // Some servers ignore the image on create, so attach it with the update route
+      const created = createRes?.data?.post || createRes?.data || {};
+      const newId = created._id || created.id;
+      if (imageUrl && newId && !created.image) {
+        try {
+          await postsAPI.update(newId, { image: imageUrl });
+        } catch (err) {
+          toast.error('Post saved, but the image could not be attached. Add it from Edit.');
+        }
+      }
+
+      toast.success(
+        status === 'published' ? 'Post published successfully!' : 'Draft saved!'
+      );
+      navigate('/dashboard');
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to create post");
+      toast.error(error.response?.data?.message || 'Failed to create post');
     } finally {
       setIsPublishing(false);
     }
   };
 
-  const handleSaveDraft = handleSubmit(async (data) => {
-    setValue("status", "draft");
-    await onSubmit(data);
-  });
-
-  const handlePublish = handleSubmit(async (data) => {
-    setValue("status", "published");
-    await onSubmit(data);
-  });
-
-  const quillModules = {
-    toolbar: [
-      [{ header: [1, 2, 3, 4, 5, 6, false] }],
-      ["bold", "italic", "underline", "strike"],
-      [{ color: [] }, { background: [] }],
-      [{ list: "ordered" }, { list: "bullet" }],
-      [{ indent: "-1" }, { indent: "+1" }],
-      [{ align: [] }],
-      ["link", "image", "video"],
-      ["blockquote", "code-block"],
-      ["clean"],
-    ],
-  };
-
-  const quillFormats = [
-    "header",
-    "bold",
-    "italic",
-    "underline",
-    "strike",
-    "color",
-    "background",
-    "list",
-    "bullet",
-    "indent",
-    "align",
-    "link",
-    "image",
-    "video",
-    "blockquote",
-    "code-block",
-  ];
+  const handleSaveDraft = handleSubmit((data) => submitPost(data, 'draft'));
+  const handlePublish = handleSubmit((data) => submitPost(data, 'published'));
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -143,7 +153,7 @@ const CreatePost = () => {
         {/* Header */}
         <div className="mb-8">
           <button
-            onClick={() => navigate("/dashboard")}
+            onClick={() => navigate('/dashboard')}
             className="flex items-center text-gray-600 hover:text-gray-900 mb-4"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -152,11 +162,8 @@ const CreatePost = () => {
           <h1 className="text-3xl font-bold text-gray-900">Create New Post</h1>
         </div>
 
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          className="space-y-6"
-          encType="multipart/form-data"
-        >
+        {/* Pressing Enter in a field publishes nothing by accident: it saves a draft */}
+        <form onSubmit={handleSaveDraft} className="space-y-6">
           <div className="bg-white rounded-lg shadow p-6 space-y-6">
             {/* Title */}
             <div>
@@ -164,15 +171,13 @@ const CreatePost = () => {
                 Post Title *
               </label>
               <input
-                {...register("title", { required: "Title is required" })}
+                {...register('title', { required: 'Title is required' })}
                 type="text"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Enter your post title"
               />
               {errors.title && (
-                <p className="mt-1 text-sm text-red-600">
-                  {errors.title.message}
-                </p>
+                <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>
               )}
             </div>
 
@@ -182,7 +187,7 @@ const CreatePost = () => {
                 Excerpt
               </label>
               <textarea
-                {...register("excerpt")}
+                {...register('excerpt')}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Brief description of your post"
@@ -196,7 +201,7 @@ const CreatePost = () => {
                   Category *
                 </label>
                 <select
-                  {...register("category", { required: "Category is required" })}
+                  {...register('category', { required: 'Category is required' })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">Select a category</option>
@@ -207,9 +212,7 @@ const CreatePost = () => {
                   ))}
                 </select>
                 {errors.category && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {errors.category.message}
-                  </p>
+                  <p className="mt-1 text-sm text-red-600">{errors.category.message}</p>
                 )}
               </div>
 
@@ -218,10 +221,10 @@ const CreatePost = () => {
                   Tags
                 </label>
                 <input
-                  {...register("tags")}
+                  {...register('tags')}
                   type="text"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter tags separated by commas"
+                  placeholder="Enter tags separated by commas (no #)"
                 />
               </div>
             </div>
@@ -232,10 +235,10 @@ const CreatePost = () => {
                 Featured Image
               </label>
               <div className="space-y-4">
-                {featuredImage ? (
+                {previewUrl ? (
                   <div className="relative">
                     <img
-                      src={URL.createObjectURL(featuredImage)}
+                      src={previewUrl}
                       alt="Featured"
                       className="w-full h-48 object-cover rounded-lg"
                     />
@@ -258,10 +261,7 @@ const CreatePost = () => {
                       className="hidden"
                       id="image-upload"
                     />
-                    <label
-                      htmlFor="image-upload"
-                      className="btn btn-outline cursor-pointer"
-                    >
+                    <label htmlFor="image-upload" className="btn btn-outline cursor-pointer">
                       Choose Image
                     </label>
                   </div>
@@ -270,18 +270,16 @@ const CreatePost = () => {
             </div>
 
             {/* Content Editor */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <div>
               <div className="flex items-center justify-between mb-4">
-                <label className="block text-sm font-medium text-gray-700">
-                  Content *
-                </label>
+                <label className="block text-sm font-medium text-gray-700">Content *</label>
                 <button
                   type="button"
                   onClick={() => setIsPreview(!isPreview)}
                   className="flex items-center text-sm text-gray-600 hover:text-gray-900"
                 >
                   <Eye className="h-4 w-4 mr-2" />
-                  {isPreview ? "Edit" : "Preview"}
+                  {isPreview ? 'Edit' : 'Preview'}
                 </button>
               </div>
 
@@ -318,7 +316,7 @@ const CreatePost = () => {
             <div className="flex items-center space-x-4">
               <button
                 type="button"
-                onClick={() => navigate("/dashboard")}
+                onClick={() => navigate('/dashboard')}
                 className="btn btn-outline"
               >
                 Cancel
@@ -332,10 +330,10 @@ const CreatePost = () => {
                 {isPublishing ? (
                   <div className="flex items-center">
                     <div className="spinner h-4 w-4 mr-2"></div>
-                    Publishing...
+                    Saving...
                   </div>
                 ) : (
-                  "Publish Post"
+                  'Publish Post'
                 )}
               </button>
             </div>

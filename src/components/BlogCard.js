@@ -1,43 +1,36 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, Clock, User, Eye } from 'lucide-react';
-import { format } from 'date-fns';
+import {
+  getImageUrl,
+  formatReadTime,
+  getCategoryColor,
+  formatPostDate,
+} from '../utils/postHelpers';
 
 const BlogCard = ({ post }) => {
-  const formatDate = (dateString) => {
-    return format(new Date(dateString), 'MMM dd, yyyy');
-  };
-
-  const getCategoryColor = (category) => {
-    const colors = {
-      technology: 'bg-blue-100 text-blue-800',
-      lifestyle: 'bg-green-100 text-green-800',
-      travel: 'bg-purple-100 text-purple-800',
-      food: 'bg-orange-100 text-orange-800',
-      business: 'bg-gray-100 text-gray-800',
-      health: 'bg-red-100 text-red-800',
-    };
-    return colors[category] || 'bg-gray-100 text-gray-800';
-  };
+  const [imageFailed, setImageFailed] = useState(false);
+  const imageUrl = getImageUrl(post.image);
 
   return (
     <article className="card card-hover group">
       {/* Post Image */}
-      <div className="aspect-w-16 aspect-h-9 mb-4 overflow-hidden rounded-lg">
-        {post.image ? (
+      <Link to={`/blog/${post._id}`} className="block mb-4 overflow-hidden rounded-lg">
+        {imageUrl && !imageFailed ? (
           <img
-            src={post.image}
+            src={imageUrl}
             alt={post.title}
+            onError={() => setImageFailed(true)}
             className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
           />
         ) : (
           <div className="w-full h-48 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
             <span className="text-white text-4xl font-bold">
-              {post.title.charAt(0).toUpperCase()}
+              {post.title?.charAt(0)?.toUpperCase() || '?'}
             </span>
           </div>
         )}
-      </div>
+      </Link>
 
       {/* Post Content */}
       <div className="space-y-3">
@@ -58,15 +51,11 @@ const BlogCard = ({ post }) => {
 
         {/* Title */}
         <h3 className="text-xl font-semibold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2">
-          <Link to={`/blog/${post._id}`}>
-            {post.title}
-          </Link>
+          <Link to={`/blog/${post._id}`}>{post.title}</Link>
         </h3>
 
         {/* Excerpt */}
-        <p className="text-gray-600 line-clamp-3">
-          {post.excerpt}
-        </p>
+        <p className="text-gray-600 line-clamp-3">{post.excerpt}</p>
 
         {/* Author and Date */}
         <div className="flex items-center justify-between pt-4 border-t border-gray-100">
@@ -80,13 +69,13 @@ const BlogCard = ({ post }) => {
               </p>
               <div className="flex items-center text-xs text-gray-500">
                 <Calendar className="h-3 w-3 mr-1" />
-                {formatDate(post.createdAt)}
+                {formatPostDate(post.createdAt)}
               </div>
             </div>
           </div>
           <div className="flex items-center text-sm text-gray-500">
             <Clock className="h-4 w-4 mr-1" />
-            {post.readTime || '5 min read'}
+            {formatReadTime(post.readTime)}
           </div>
         </div>
 
@@ -98,7 +87,7 @@ const BlogCard = ({ post }) => {
                 key={tag}
                 className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded"
               >
-                #{tag}
+                #{String(tag).replace(/^#+/, '')}
               </span>
             ))}
             {post.tags.length > 3 && (
@@ -114,4 +103,3 @@ const BlogCard = ({ post }) => {
 };
 
 export default BlogCard;
-

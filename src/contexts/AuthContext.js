@@ -18,8 +18,9 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      authAPI.getProfile()
-        .then(response => {
+      authAPI
+        .getProfile()
+        .then((response) => {
           setUser(response.data.user);
         })
         .catch(() => {
@@ -37,15 +38,15 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authAPI.login({ email, password });
       const { token, user: userData } = response.data;
-      
+
       localStorage.setItem('token', token);
       setUser(userData);
-      
+
       return { success: true };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error.response?.data?.message || 'Login failed' 
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Login failed',
       };
     }
   };
@@ -54,15 +55,15 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authAPI.register(userData);
       const { token, user: newUser } = response.data;
-      
+
       localStorage.setItem('token', token);
       setUser(newUser);
-      
+
       return { success: true };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error.response?.data?.message || 'Registration failed' 
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Registration failed',
       };
     }
   };
@@ -72,17 +73,23 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  // Calls the API AND updates the user (use when you have raw form data)
   const updateProfile = async (profileData) => {
     try {
       const response = await authAPI.updateProfile(profileData);
       setUser(response.data.user);
       return { success: true };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error.response?.data?.message || 'Profile update failed' 
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Profile update failed',
       };
     }
+  };
+
+  // Only updates the user in memory (use after the API call already happened)
+  const updateUser = (userData) => {
+    setUser(userData);
   };
 
   const value = {
@@ -91,13 +98,9 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     updateProfile,
-    loading
+    updateUser,
+    loading,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-

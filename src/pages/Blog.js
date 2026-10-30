@@ -52,20 +52,25 @@ const Blog = () => {
   const posts = postsData?.posts || [];
   const totalPages = Math.ceil((postsData?.total || 0) / postsPerPage);
 
-  // Handle search
-  const handleSearch = (e) => {
-    e.preventDefault();
-    setSearchQuery(e.target.value);
-    setCurrentPage(1);
-    updateURL();
-  };
+  useEffect(() => {
+  const params = new URLSearchParams();
+  if (searchQuery) params.set('q', searchQuery);
+  if (selectedCategory !== 'all') params.set('category', selectedCategory);
+  if (sortBy !== 'newest') params.set('sort', sortBy);
+  setSearchParams(params, { replace: true });
+}, [searchQuery, selectedCategory, sortBy, setSearchParams]);
 
-  // Handle category filter
-  const handleCategoryChange = (category) => {
-    setSelectedCategory(category);
-    setCurrentPage(1);
-    updateURL();
-  };
+// Handle search
+const handleSearch = (e) => {
+  setSearchQuery(e.target.value);
+  setCurrentPage(1);
+};
+
+// Handle category filter
+const handleCategoryChange = (category) => {
+  setSelectedCategory(category);
+  setCurrentPage(1);
+};
 
   // Handle sort change
   const handleSortChange = (sort) => {
