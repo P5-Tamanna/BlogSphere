@@ -148,7 +148,7 @@ The `.html` files, `script.js` and `styles.css` in the root are an early static 
 ### Uploads
 | Method | Endpoint | Description |
 |---|---|---|
-| POST | `/api/upload/image` | Upload an image, returns its `/uploads/...` address |
+| POST | `/api/upload/image` | Upload an image (login required), returns its `/uploads/...` address |
 
 ## Usage
 
