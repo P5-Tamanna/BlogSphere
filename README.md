@@ -150,6 +150,12 @@ The `.html` files, `script.js` and `styles.css` in the root are an early static 
 |---|---|---|
 | POST | `/api/upload/image` | Upload an image (login required), returns its `/uploads/...` address |
 
+## Screenshots
+
+![Home page](screenshots/home.png)
+![Listing page with map](screenshots/dashboard.png)
+![Reviews](screenshots/newBlog.png)
+
 ## Usage
 
 1. Register an account or log in.
